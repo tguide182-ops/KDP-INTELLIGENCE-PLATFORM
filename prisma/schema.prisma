@@ -1,0 +1,765 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// -----------------------------------------------------------------------------
+// 1. AUTHENTICATION & USERS
+// -----------------------------------------------------------------------------
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  salt         String
+  name         String?
+  avatarUrl    String?
+  role         String    @default("CREATOR") // "CREATOR" | "ADMIN"
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  sessions     Session[]
+  resetTokens  PasswordResetToken[]
+  channels     Channel[]
+  projects     Project[]
+  swipeItems   SwipeItem[]
+  researchJobs ResearchJob[]
+  aiJobRuns    AIJobRun[]
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// -----------------------------------------------------------------------------
+// 2. CHANNELS & PROFILES (VYRAL)
+// -----------------------------------------------------------------------------
+
+model Channel {
+  id               String          @id @default(uuid())
+  userId           String?
+  user             User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  youtubeChannelId String          @unique
+  handle           String
+  title            String
+  description      String?
+  thumbnailUrl     String?
+  customUrl        String?
+  country          String?
+  publishedAt      DateTime?
+  isOwned          Boolean         @default(false)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  metrics          ChannelMetric[]
+  dna              ChannelDNA?
+  videos           Video[]
+  outliers         Outlier[]
+  managedCompetitors Competitor[]  @relation("ManagedChannel")
+  trackedAsCompetitor Competitor[] @relation("TrackedCompetitor")
+  projects         Project[]
+  experiments      Experiment[]
+
+  @@index([handle])
+  @@index([userId])
+}
+
+model ChannelMetric {
+  id                 String   @id @default(uuid())
+  channelId          String
+  channel            Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  subscriberCount    Int      @default(0)
+  viewCount          BigInt   @default(0)
+  videoCount         Int      @default(0)
+  avgViews30d        Float    @default(0)
+  uploadFrequencyDays Float   @default(0)
+  provenance         String   @default("YOUTUBE_API")
+  recordedAt         DateTime @default(now())
+
+  @@index([channelId])
+  @@index([recordedAt])
+}
+
+model ChannelDNA {
+  id              String   @id @default(uuid())
+  channelId       String   @unique
+  channel         Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  positioning     String
+  topicPillars    String
+  titleDNA        String
+  thumbnailDNA    String
+  hookDNA         String
+  visualDNA       String
+  storytellingDNA String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// -----------------------------------------------------------------------------
+// 3. VIDEOS & METRICS (VYRAL)
+// -----------------------------------------------------------------------------
+
+model Video {
+  id               String         @id @default(uuid())
+  channelId        String
+  channel          Channel        @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  youtubeVideoId   String         @unique
+  title            String
+  description      String?
+  thumbnailUrl     String?
+  durationSeconds  Int            @default(0)
+  isShort          Boolean        @default(false)
+  publishedAt      DateTime
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  metrics          VideoMetric[]
+  autopsy          VideoAutopsy?
+  outlier          Outlier?
+  experiments      Experiment[]
+
+  @@index([channelId])
+  @@index([publishedAt])
+}
+
+model VideoMetric {
+  id                    String   @id @default(uuid())
+  videoId               String
+  video                 Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  views                 BigInt   @default(0)
+  likes                 Int      @default(0)
+  comments              Int      @default(0)
+  viewVelocityPerDay    Float    @default(0)
+  baselineRatio         Float    @default(0)
+  engagementRate        Float    @default(0)
+  provenance            String   @default("YOUTUBE_API")
+  recordedAt            DateTime @default(now())
+
+  @@index([videoId])
+  @@index([recordedAt])
+}
+
+model VideoAutopsy {
+  id                 String   @id @default(uuid())
+  videoId            String   @unique
+  video              Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  coreSubject        String
+  hookAnalysis       String
+  angleCuriosity     String
+  storyFramework     String
+  retentionPacing    String
+  thumbnailBreakdown String
+  packagingGrade     String
+  keyTakeaways       String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+// -----------------------------------------------------------------------------
+// 4. OUTLIERS & COMPETITORS (VYRAL)
+// -----------------------------------------------------------------------------
+
+model Outlier {
+  id                 String   @id @default(uuid())
+  videoId            String   @unique
+  video              Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  channelId          String
+  channel            Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  multiplier         Float
+  outlierType        String   @default("CHANNEL_RELATIVE")
+  whyItPoppedHypothesis String
+  suggestedAction    String
+  detectedAt         DateTime @default(now())
+
+  @@index([channelId])
+  @@index([multiplier])
+}
+
+model Topic {
+  id                 String   @id @default(uuid())
+  nicheId            String?
+  niche              Niche?   @relation(fields: [nicheId], references: [id], onDelete: SetNull)
+  title              String
+  searchVolumeSignal String   @default("STABLE")
+  trendScore         Float    @default(50)
+  lastSignalUpdate   DateTime @default(now())
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([nicheId])
+}
+
+model Competitor {
+  id                  String            @id @default(uuid())
+  managedChannelId    String
+  managedChannel      Channel           @relation("ManagedChannel", fields: [managedChannelId], references: [id], onDelete: Cascade)
+  competitorChannelId String
+  competitorChannel   Channel           @relation("TrackedCompetitor", fields: [competitorChannelId], references: [id], onDelete: Cascade)
+  notes               String?
+  isActive            Boolean           @default(true)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  alerts              CompetitorAlert[]
+
+  @@unique([managedChannelId, competitorChannelId])
+  @@index([managedChannelId])
+}
+
+model CompetitorAlert {
+  id           String     @id @default(uuid())
+  competitorId String
+  competitor   Competitor @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+  type         String
+  message      String
+  isRead       Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+
+  @@index([competitorId])
+  @@index([isRead])
+}
+
+// -----------------------------------------------------------------------------
+// 5. UNIFIED PROJECT MODEL (SERVES BOTH VYRAL & KDP)
+// -----------------------------------------------------------------------------
+
+model Project {
+  id          String    @id @default(uuid())
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channelId   String?
+  channel     Channel?  @relation(fields: [channelId], references: [id], onDelete: SetNull)
+  title       String?
+  name        String?
+  description String?
+  marketplace String    @default("amazon.com")
+  status      String    @default("IDEA")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Vyral relations
+  ideas       Idea[]
+  scripts     Script[]
+  assets      Asset[]
+  titles      TitleConcept[]
+  thumbnails  ThumbnailConcept[]
+
+  // KDP Intelligence relations
+  savedKeywords SavedKeyword[]
+  savedNiches   SavedNiche[]
+  bookProjects  BookProject[]
+  clusters      KeywordCluster[]
+  titlePlans    TitlePlan[]
+  backendPlans  BackendKeywordPlan[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+model Idea {
+  id             String   @id @default(uuid())
+  projectId      String?
+  project        Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  titleConcept   String
+  topic          String
+  format         String   @default("DOCUMENTARY")
+  hook           String
+  whyNow         String
+  competitiveGap String
+  thumbnailPrompt String?
+  status         String   @default("SAVED")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([projectId])
+}
+
+model Script {
+  id               String          @id @default(uuid())
+  projectId        String
+  project          Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title            String
+  format           String          @default("DOCUMENTARY")
+  blueprint        String?
+  currentVersion   Int             @default(1)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  versions         ScriptVersion[]
+  scenes           Scene[]
+
+  @@index([projectId])
+}
+
+model ScriptVersion {
+  id             String   @id @default(uuid())
+  scriptId       String
+  script         Script   @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+  versionNumber  Int
+  content        String
+  retentionScore Float?
+  notes          String?
+  createdAt      DateTime @default(now())
+
+  @@index([scriptId])
+}
+
+model Scene {
+  id                String   @id @default(uuid())
+  scriptId          String
+  script            Script   @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+  sceneIndex        Int
+  narration         String
+  visualDescription String
+  imagePrompt       String?
+  cameraMovement    String?
+  transition        String?
+  durationSeconds   Float    @default(5.0)
+  sfxCue            String?
+  musicMood         String?
+  createdAt         DateTime @default(now())
+
+  @@index([scriptId])
+}
+
+model Asset {
+  id        String   @id @default(uuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  type      String
+  fileUrl   String
+  metadata  String?
+  createdAt DateTime @default(now())
+
+  @@index([projectId])
+}
+
+model TitleConcept {
+  id             String   @id @default(uuid())
+  projectId      String?
+  project        Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title          String
+  mode           String   @default("CURIOSITY")
+  clarityScore   Float    @default(0)
+  curiosityScore Float    @default(0)
+  mobileFit      Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  @@index([projectId])
+}
+
+model ThumbnailConcept {
+  id            String   @id @default(uuid())
+  projectId     String?
+  project       Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  conceptTitle  String
+  composition   String
+  focalSubject  String
+  prompt        String
+  clutterScore  Float    @default(0)
+  contrastScore Float    @default(0)
+  createdAt     DateTime @default(now())
+
+  @@index([projectId])
+}
+
+model Experiment {
+  id           String    @id @default(uuid())
+  channelId    String
+  channel      Channel   @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  videoId      String?
+  video        Video?    @relation(fields: [videoId], references: [id], onDelete: SetNull)
+  testType     String
+  variantA     String
+  variantB     String
+  outcomeNotes String?
+  status       String    @default("ACTIVE")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([channelId])
+  @@index([status])
+}
+
+model SwipeItem {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type         String
+  title        String
+  sourceUrl    String?
+  thumbnailUrl String?
+  notes        String?
+  tags         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+  @@index([type])
+}
+
+model ResearchJob {
+  id            String   @id @default(uuid())
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  type          String
+  status        String   @default("QUEUED")
+  progress      Int      @default(0)
+  resultPayload String?
+  errorMessage  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([status])
+  @@index([userId])
+}
+
+model AIJobRun {
+  id               String   @id @default(uuid())
+  userId           String?
+  user             User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  provider         String
+  model            String
+  promptTokens     Int      @default(0)
+  completionTokens Int      @default(0)
+  durationMs       Int      @default(0)
+  status           String   @default("SUCCESS")
+  createdAt        DateTime @default(now())
+
+  @@index([provider])
+}
+
+// -----------------------------------------------------------------------------
+// 6. KDP INTELLIGENCE & RESEARCH
+// -----------------------------------------------------------------------------
+
+model Keyword {
+  id             String          @id @default(uuid())
+  term           String
+  normalizedTerm String          @unique
+  marketplace    String          @default("amazon.com")
+  phraseType     String          @default("suggestion")
+  wordCount      Int             @default(1)
+  intent         String          @default("commercial")
+  parentKeyword  String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  metrics        KeywordMetric[]
+  savedKeywords  SavedKeyword[]
+  clusterItems   ClusterKeywordItem[]
+}
+
+model KeywordMetric {
+  id                   String   @id @default(uuid())
+  keywordId            String
+  keyword              Keyword  @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+  estimatedMonthlyVol  Int      @default(0)
+  volumeTrend          String   @default("stable")
+  amazonResultCount    Int      @default(0)
+  confidenceLevel      String   @default("MEDIUM")
+  dataSource           String   @default("ESTIMATED")
+  demandScore          Float    @default(0)
+  competitionScore     Float    @default(0)
+  opportunityScore     Float    @default(0)
+  demandBreakdown      String?
+  competitionBreakdown String?
+  lastUpdated          DateTime @default(now())
+  createdAt            DateTime @default(now())
+
+  @@index([keywordId])
+}
+
+model SavedKeyword {
+  id        String   @id @default(uuid())
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  keywordId String
+  keyword   Keyword  @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+  status    String   @default("Researching")
+  notes     String?
+  starred   Boolean  @default(false)
+  tags      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, keywordId])
+  @@index([projectId])
+  @@index([keywordId])
+}
+
+model Niche {
+  id               String        @id @default(uuid())
+  name             String
+  category         String        @default("Books")
+  primaryKeyword   String?
+  marketplace      String        @default("amazon.com")
+  description      String?
+  outlierRate      Float         @default(0)
+  competitionIndex Float         @default(0)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  topics           Topic[]
+  metrics          NicheMetric[]
+  savedNiches      SavedNiche[]
+}
+
+model NicheMetric {
+  id                     String   @id @default(uuid())
+  nicheId                String
+  niche                  Niche    @relation(fields: [nicheId], references: [id], onDelete: Cascade)
+  demandScore            Float    @default(0)
+  competitionScore       Float    @default(0)
+  opportunityScore       Float    @default(0)
+  totalEstimatedRevenue  Float    @default(0)
+  medianBSR              Int      @default(0)
+  avgPrice               Float    @default(0)
+  avgReviews             Float    @default(0)
+  newcomerRatio          Float    @default(0)
+  recordedAt             DateTime @default(now())
+
+  @@index([nicheId])
+}
+
+model SavedNiche {
+  id        String   @id @default(uuid())
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  nicheId   String
+  niche     Niche    @relation(fields: [nicheId], references: [id], onDelete: Cascade)
+  status    String   @default("Active")
+  notes     String?
+  starred   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, nicheId])
+  @@index([projectId])
+  @@index([nicheId])
+}
+
+model Book {
+  id              String    @id @default(uuid())
+  asin            String    @unique
+  title           String
+  subtitle        String?
+  author          String?
+  price           Float     @default(0)
+  bsr             Int       @default(0)
+  reviewCount     Int       @default(0)
+  rating          Float     @default(0)
+  pageCount       Int       @default(0)
+  format          String    @default("Paperback")
+  publicationDate DateTime?
+  coverUrl        String?
+  marketplace     String    @default("amazon.com")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model KeywordCluster {
+  id                  String               @id @default(uuid())
+  projectId           String?
+  project             Project?             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name                String
+  theme               String?
+  intent              String?
+  avgOpportunityScore Float                @default(0)
+  createdAt           DateTime             @default(now())
+
+  items               ClusterKeywordItem[]
+}
+
+model ClusterKeywordItem {
+  id        String         @id @default(uuid())
+  clusterId String
+  cluster   KeywordCluster @relation(fields: [clusterId], references: [id], onDelete: Cascade)
+  keywordId String
+  keyword   Keyword        @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+  isPrimary Boolean        @default(false)
+  createdAt DateTime       @default(now())
+
+  @@unique([clusterId, keywordId])
+}
+
+model TitlePlan {
+  id                 String   @id @default(uuid())
+  projectId          String?
+  project            Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  primaryKeyword     String
+  secondaryKeywords  String?
+  targetAudience     String?
+  benefit            String?
+  generatedTitles    String?
+  selectedTitle      String?
+  selectedSubtitle   String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model BackendKeywordPlan {
+  id        String   @id @default(uuid())
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  slot1     String?
+  slot2     String?
+  slot3     String?
+  slot4     String?
+  slot5     String?
+  slot6     String?
+  slot7     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AIReport {
+  id              String   @id @default(uuid())
+  niche           String
+  marketplace     String   @default("amazon.com")
+  contentMarkdown String
+  metadata        String?
+  createdAt       DateTime @default(now())
+}
+
+model SystemHealthLog {
+  id        String   @id @default(uuid())
+  component String
+  status    String
+  latencyMs Int      @default(0)
+  details   String?
+  createdAt DateTime @default(now())
+}
+
+// -----------------------------------------------------------------------------
+// 7. BOOK STUDIO & PUBLISHING OS
+// -----------------------------------------------------------------------------
+
+model BookProject {
+  id                String       @id @default(uuid())
+  projectId         String?
+  project           Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  title             String
+  subtitle          String?
+  targetAudience    String?
+  coreBenefit       String?
+  primaryKeyword    String?
+  secondaryKeywords String?
+  niche             String?
+  targetWordCount   Int          @default(25000)
+  targetPageCount   Int          @default(140)
+  trimSize          String       @default("6x9")
+  paperType         String       @default("white")
+  status            String       @default("CONCEPT")
+  marketplace       String       @default("amazon.com")
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  blueprint         Blueprint?
+  chapters          Chapter[]
+}
+
+model Blueprint {
+  id                      String      @id @default(uuid())
+  bookProjectId           String      @unique
+  bookProject             BookProject @relation(fields: [bookProjectId], references: [id], onDelete: Cascade)
+  thesis                  String?
+  targetReaderProfile     String?
+  toneAndStyle            String?
+  structureType           String?
+  totalChapters           Int         @default(0)
+  estimatedPages          Int         @default(0)
+  estimatedReadingTimeMin Int         @default(0)
+  keywordCoverage         String?
+  createdAt               DateTime    @default(now())
+  updatedAt               DateTime    @updatedAt
+}
+
+model Chapter {
+  id               String       @id @default(uuid())
+  bookProjectId    String
+  bookProject      BookProject  @relation(fields: [bookProjectId], references: [id], onDelete: Cascade)
+  orderIndex       Int
+  chapterNumber    Int?
+  type             String       @default("BODY")
+  title            String
+  subtitle         String?
+  targetWordCount  Int          @default(2000)
+  actualWordCount  Int          @default(0)
+  purpose          String?
+  assignedKeywords String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  sections         Section[]
+
+  @@index([bookProjectId])
+}
+
+model Section {
+  id              String         @id @default(uuid())
+  chapterId       String
+  chapter         Chapter        @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  orderIndex      Int
+  title           String
+  targetWordCount Int            @default(500)
+  summary         String?
+  keyPoints       String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  blocks          ContentBlock[]
+
+  @@index([chapterId])
+}
+
+model ContentBlock {
+  id         String   @id @default(uuid())
+  sectionId  String
+  section    Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  orderIndex Int
+  type       String   @default("PARAGRAPH")
+  content    String
+  wordCount  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([sectionId])
+}
+
+model SavedMarketSearch {
+  id               String    @id @default(uuid())
+  name             String
+  seeds            String
+  marketplace      String    @default("amazon.com")
+  filters          String
+  mode             String    @default("QUICK_SEARCH")
+  resultCount      Int       @default(0)
+  overviewSnapshot String?
+  resultsSnapshot  String?
+  lastRun          DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}

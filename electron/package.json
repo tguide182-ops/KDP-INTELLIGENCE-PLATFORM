@@ -1,0 +1,23 @@
+{
+  "name": "kdp-intelligence-desktop",
+  "version": "1.0.0",
+  "description": "KDP Publishing Intelligence Operating System Desktop Application",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:exe": "electron-builder --win"
+  },
+  "build": {
+    "appId": "com.kdp.intelligence",
+    "productName": "KDP Intelligence",
+    "win": {
+      "target": ["nsis", "portable"]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}

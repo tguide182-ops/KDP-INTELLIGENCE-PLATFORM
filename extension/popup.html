@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KDP Intelligence Companion</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      width: 360px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #090d16;
+      color: #f1f5f9;
+      padding: 16px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #1e293b;
+      margin-bottom: 14px;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 800;
+      font-size: 14px;
+      background: linear-gradient(135deg, #a5b4fc 0%, #818cf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 9999px;
+      background: rgba(16, 185, 129, 0.1);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #10b981;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.4; }
+      100% { opacity: 1; }
+    }
+    .context-card {
+      background: #131b2e;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 14px;
+    }
+    .context-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #94a3b8;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .context-val {
+      font-size: 13px;
+      font-weight: 600;
+      color: #38bdf8;
+      word-break: break-all;
+    }
+    .search-form {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+    .search-input {
+      flex: 1;
+      background: #131b2e;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 12px;
+      color: white;
+      outline: none;
+    }
+    .search-input:focus {
+      border-color: #6366f1;
+    }
+    .search-btn {
+      background: #4f46e5;
+      border: none;
+      color: white;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .search-btn:hover {
+      background: #4338ca;
+    }
+    .grid-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #64748b;
+      margin-bottom: 8px;
+    }
+    .launchpad-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+    .launch-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      background: #131b2e;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      color: #cbd5e1;
+      font-size: 11px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.15s ease;
+    }
+    .launch-btn:hover {
+      background: #1e293b;
+      border-color: #475569;
+      color: white;
+    }
+    .footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 10px;
+      border-top: 1px solid #1e293b;
+      font-size: 10px;
+      color: #64748b;
+    }
+    .footer a {
+      color: #818cf8;
+      text-decoration: none;
+    }
+    .footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">
+      <span>⚡ KDP Intelligence</span>
+    </div>
+    <div class="status-badge" id="server-status">
+      <span class="status-dot"></span>
+      <span>Local Active</span>
+    </div>
+  </div>
+
+  <div class="context-card" id="context-box">
+    <div class="context-label">Current Active Tab</div>
+    <div class="context-val" id="context-text">Detecting Amazon context...</div>
+  </div>
+
+  <form class="search-form" id="quick-search-form">
+    <input type="text" class="search-input" id="quick-search-input" placeholder="Search KDP keyword..." />
+    <button type="submit" class="search-btn">Analyze</button>
+  </form>
+
+  <div class="grid-title">Operating System Modules</div>
+  <div class="launchpad-grid">
+    <a href="http://localhost:3000/market/scanner" target="_blank" class="launch-btn" style="border-color: #6366f1; background: rgba(99, 102, 241, 0.1);">
+      <span>🌐</span> Deep Scanner
+    </a>
+    <a href="http://localhost:3000/studio/books" target="_blank" class="launch-btn" style="border-color: #8b5cf6; background: rgba(139, 92, 246, 0.1);">
+      <span>📚</span> Book Studio
+    </a>
+    <a href="http://localhost:3000/keywords/explorer" target="_blank" class="launch-btn">
+      <span>🔍</span> Keyword Explorer
+    </a>
+    <a href="http://localhost:3000/niches/analyzer" target="_blank" class="launch-btn">
+      <span>📊</span> Niche Analyzer
+    </a>
+    <a href="http://localhost:3000/serp/analyzer" target="_blank" class="launch-btn">
+      <span>📖</span> SERP Analyzer
+    </a>
+    <a href="http://localhost:3000/competitors/reverse-asin" target="_blank" class="launch-btn">
+      <span>🔄</span> Reverse ASIN
+    </a>
+    <a href="http://localhost:3000/keywords/clustering" target="_blank" class="launch-btn">
+      <span>🧩</span> Clustering
+    </a>
+    <a href="http://localhost:3000/opportunities/gaps" target="_blank" class="launch-btn">
+      <span>🎯</span> Opportunity Gaps
+    </a>
+    <a href="http://localhost:3000/builder/title" target="_blank" class="launch-btn">
+      <span>✍️</span> Title Builder
+    </a>
+    <a href="http://localhost:3000/builder/backend-keywords" target="_blank" class="launch-btn">
+      <span>🏷️</span> Backend Keywords
+    </a>
+    <a href="http://localhost:3000/assistant/research" target="_blank" class="launch-btn">
+      <span>🤖</span> AI Assistant
+    </a>
+    <a href="http://localhost:3000/trends/compare" target="_blank" class="launch-btn">
+      <span>📈</span> Trend Comparison
+    </a>
+  </div>
+
+  <div class="footer">
+    <span>KDP Intelligence v1.0</span>
+    <a href="http://localhost:3000" target="_blank">Open Full Dashboard &rarr;</a>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
